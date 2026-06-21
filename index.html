@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KPW Photo Curator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange:  #E67E22;
+      --orange2: #ca6f1e;
+      --green:   #22c55e;
+      --red:     #ef4444;
+      --gold:    #F1C40F;
+      --bg:      #0a0f1e;
+      --border:  rgba(50,70,110,0.7);
+    }
+
+    body {
+      font-family: 'Google Sans', -apple-system, Arial, sans-serif;
+      background: var(--bg);
+      color: #fff;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    .site-header {
+      background: rgba(6,10,24,0.98);
+      border-bottom: 3px solid var(--orange);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      width: 44px; height: 44px;
+      background: var(--orange);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 13px; color: #fff;
+      letter-spacing: -0.5px;
+      flex-shrink: 0;
+    }
+    .header-text { flex: 1; }
+    .site-header h1 { font-size: 17px; font-weight: 700; color: #fff; line-height: 1; }
+    .site-header p  { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+
+    .audio-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      background: rgba(230,126,34,0.10);
+      border: 1.5px solid rgba(230,126,34,0.4);
+      border-radius: 22px;
+      color: #E67E22;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .audio-btn:hover { background: rgba(230,126,34,0.22); border-color: var(--orange); }
+    .audio-btn.active { background: rgba(230,126,34,0.22); border-color: var(--orange); color: #fbbf24; }
+    @keyframes pulse-icon { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
+    .audio-btn.active .btn-icon { animation: pulse-icon 1.5s ease-in-out infinite; }
+
+    /* ── Main content ─────────────────────────────────────────── */
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 0;
+    }
+
+    /* ── Step 1 — Search bar ──────────────────────────────────── */
+    #search-bar {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .search-field { flex: 1; min-width: 220px; }
+    .search-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      color: #f1f5f9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .search-field .hint {
+      font-size: 10px;
+      color: #6b7280;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      margin-top: 3px;
+    }
+    .search-field input {
+      width: 100%;
+      padding: 11px 13px;
+      background: rgba(4,8,20,0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .search-field input:focus { outline: none; border-color: var(--orange); }
+    ::placeholder { color: #4b5563; }
+
+    .btn-load {
+      padding: 11px 22px;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-load:hover { background: var(--orange2); }
+    .btn-load:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── State messages ───────────────────────────────────────── */
+    #state-msg {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+      font-size: 14px;
+      display: none;
+    }
+    #state-msg.visible { display: block; }
+    #state-msg .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(230,126,34,0.3);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #state-msg.error { color: #fca5a5; }
+
+    /* ── Photo grid ───────────────────────────────────────────── */
+    #photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (min-width: 640px)  { #photo-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 900px)  { #photo-grid { grid-template-columns: repeat(5, 1fr); } }
+
+    .photo-card {
+      border-radius: 8px;
+      overflow: hidden;
+      background: #111827;
+      cursor: pointer;
+      position: relative;
+      border: 2.5px solid rgba(100,120,160,0.3);
+      transition: border-color 0.15s, opacity 0.15s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .photo-card:active { opacity: 0.85; }
+
+    /* Status border colors */
+    .photo-card[data-status="approved"] { border-color: var(--green); }
+    .photo-card[data-status="skip"]     { border-color: var(--red);   opacity: 0.45; }
+    .photo-card[data-status="story"]    { border-color: var(--gold);  }
+
+    .photo-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Status badge */
+    .status-badge {
+      position: absolute;
+      top: 5px; left: 5px;
+      font-size: 13px;
+      line-height: 1;
+      background: rgba(0,0,0,0.55);
+      border-radius: 4px;
+      padding: 3px 5px;
+    }
+
+    /* Story star overlay */
+    .story-star {
+      position: absolute;
+      top: 5px; right: 5px;
+      font-size: 14px;
+      line-height: 1;
+      display: none;
+    }
+    .photo-card[data-status="story"] .story-star { display: block; }
+
+    .photo-filename {
+      font-size: 10px;
+      color: #6b7280;
+      padding: 5px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: rgba(0,0,0,0.6);
+    }
+
+    /* ── Sticky action bar ────────────────────────────────────── */
+    #action-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(4,8,20,0.97);
+      border-top: 2px solid var(--border);
+      padding: 12px 20px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      z-index: 90;
+      backdrop-filter: blur(8px);
+    }
+    #action-bar.visible { display: flex; }
+
+    #counts {
+      font-size: 13px;
+      color: #9ca3af;
+      white-space: nowrap;
+    }
+    #counts .cnt-green  { color: var(--green); font-weight: 700; }
+    #counts .cnt-gold   { color: var(--gold);  font-weight: 700; }
+    #counts .cnt-red    { color: var(--red);   font-weight: 700; }
+
+    .bar-btns { display: flex; gap: 8px; }
+
+    .btn-save {
+      padding: 10px 20px;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-save:hover:not(:disabled) { background: var(--orange2); }
+    .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-clear {
+      padding: 10px 16px;
+      background: transparent;
+      color: #9ca3af;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-clear:hover { border-color: #9ca3af; color: #fff; }
+
+    /* ── Save result message ──────────────────────────────────── */
+    #save-result {
+      display: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #save-result.success { background: #14432a; color: #4ade80; border: 1px solid var(--green); display: block; }
+    #save-result.error   { background: #4a1515; color: #fca5a5; border: 1px solid var(--red);   display: block; }
+
+    /* ── Credentials modal ────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal-box {
+      background: #0d1628;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .modal-box h3 {
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .modal-note {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      color: #f1f5f9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .modal-field input {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(4,8,20,0.85);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: #fff;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .modal-field input:focus { outline: none; border-color: var(--orange); }
+    .modal-error {
+      font-size: 11px;
+      color: #fca5a5;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .modal-error.visible { display: block; }
+    .btn-modal-confirm {
+      width: 100%;
+      padding: 12px;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 4px;
+    }
+    .btn-modal-confirm:hover { background: var(--orange2); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="logo">KPW</div>
+  <div class="header-text">
+    <h1>Photo Curator</h1>
+    <p>Review &amp; approve client photos for Agency Brain</p>
+  </div>
+  <button class="audio-btn" id="msgBtn" onclick="toggleMsg(this)">
+    <i class="btn-icon">&#127897;</i>
+    <span class="btn-label">Message</span>
+  </button>
+</header>
+
+<!-- Credentials modal -->
+<div class="modal-overlay" id="credModal">
+  <div class="modal-box">
+    <h3>Cloudinary API Access</h3>
+    <p class="modal-note">These are only stored for this session — never saved anywhere</p>
+    <div class="modal-field">
+      <label>API Key</label>
+      <input type="text" id="inputApiKey" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="modal-field">
+      <label>API Secret</label>
+      <input type="password" id="inputApiSecret" autocomplete="off">
+    </div>
+    <div class="modal-error" id="credError"></div>
+    <button class="btn-modal-confirm" onclick="confirmCreds()">Load Photos</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="page">
+
+  <div id="search-bar">
+    <div class="search-field">
+      <label>Client Folder Name
+        <span class="hint">Use lowercase with hyphens — same as you typed on upload page</span>
+      </label>
+      <input type="text" id="clientSlug" placeholder="mikes-services-llc"
+        onkeydown="if(event.key==='Enter') loadPhotos()">
+    </div>
+    <button class="btn-load" id="btnLoad" onclick="loadPhotos()">Load Photos</button>
+  </div>
+
+  <div id="state-msg"></div>
+  <div id="photo-grid"></div>
+
+</div>
+
+<!-- Sticky action bar -->
+<div id="action-bar">
+  <div id="counts"></div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div id="save-result"></div>
+    <div class="bar-btns">
+      <button class="btn-clear" onclick="clearAll()">Clear All</button>
+      <button class="btn-save" id="btnSave" onclick="saveToAgencyBrain()">Save to Agency Brain</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── Config ─────────────────────────────────────────────────── */
+var CLOUD_NAME   = 'dxqhuoxzn';
+var APPS_SCRIPT  = 'https://script.google.com/macros/s/AKfycbyu3_9kOTfsCldjees8Wqk_6DkB7noRz1RW4ZazxX04C6ag0TqqlrBPGHEXnyg49v_V/exec';
+
+/* ─── State ──────────────────────────────────────────────────── */
+var photos     = [];   // { url, filename, status }
+var pendingSlug = '';
+
+/* ─── Audio ──────────────────────────────────────────────────── */
+var msgAudio   = null;
+var msgPlaying = false;
+
+function toggleMsg(btn) {
+  if (!msgAudio) {
+    msgAudio = new Audio('upload_welcome.mp3');
+    msgAudio.addEventListener('error', function() {
+      btn.querySelector('.btn-label').textContent = 'Unavailable';
+      btn.disabled = true;
+      msgAudio = null;
+    });
+    msgAudio.addEventListener('ended', function() {
+      msgPlaying = false;
+      setMsgState(btn, false);
+    });
+  }
+  if (msgPlaying) {
+    msgAudio.pause();
+    msgAudio.currentTime = 0;
+    msgPlaying = false;
+    setMsgState(btn, false);
+  } else {
+    msgAudio.play()
+      .then(function() { msgPlaying = true; setMsgState(btn, true); })
+      .catch(function() { btn.querySelector('.btn-label').textContent = 'Unavailable'; btn.disabled = true; });
+  }
+}
+function setMsgState(btn, on) {
+  btn.classList.toggle('active', on);
+  btn.querySelector('.btn-icon').innerHTML    = on ? '&#9646;&#9646;' : '&#127897;';
+  btn.querySelector('.btn-label').textContent = on ? 'Stop'           : 'Message';
+}
+
+/* ─── Credentials ────────────────────────────────────────────── */
+function getCreds() {
+  return {
+    key:    sessionStorage.getItem('cld_key')    || '',
+    secret: sessionStorage.getItem('cld_secret') || ''
+  };
+}
+function hasCreds() {
+  var c = getCreds();
+  return c.key && c.secret;
+}
+function confirmCreds() {
+  var key    = document.getElementById('inputApiKey').value.trim();
+  var secret = document.getElementById('inputApiSecret').value.trim();
+  var errEl  = document.getElementById('credError');
+  errEl.classList.remove('visible');
+  if (!key || !secret) {
+    errEl.textContent = 'Both fields are required.';
+    errEl.classList.add('visible');
+    return;
+  }
+  sessionStorage.setItem('cld_key', key);
+  sessionStorage.setItem('cld_secret', secret);
+  closeModal();
+  fetchPhotos(pendingSlug);
+}
+function closeModal() {
+  document.getElementById('credModal').classList.remove('visible');
+}
+
+/* ─── Load photos ─────────────────────────────────────────────── */
+function loadPhotos() {
+  var slug = document.getElementById('clientSlug').value.trim();
+  if (!slug) {
+    document.getElementById('clientSlug').focus();
+    document.getElementById('clientSlug').style.borderColor = '#E67E22';
+    return;
+  }
+  document.getElementById('clientSlug').style.borderColor = '';
+  pendingSlug = slug;
+
+  if (!hasCreds()) {
+    document.getElementById('inputApiKey').value    = '';
+    document.getElementById('inputApiSecret').value = '';
+    document.getElementById('credError').classList.remove('visible');
+    document.getElementById('credModal').classList.add('visible');
+    setTimeout(function() { document.getElementById('inputApiKey').focus(); }, 80);
+    return;
+  }
+  fetchPhotos(slug);
+}
+
+async function fetchPhotos(slug) {
+  var c        = getCreds();
+  var stateEl  = document.getElementById('state-msg');
+  var gridEl   = document.getElementById('photo-grid');
+  var barEl    = document.getElementById('action-bar');
+
+  gridEl.innerHTML = '';
+  barEl.classList.remove('visible');
+  stateEl.className = 'visible';
+  stateEl.innerHTML = '<div class="spinner"></div>Loading photos for <strong>' + slug + '</strong>…';
+  document.getElementById('btnLoad').disabled = true;
+
+  var auth    = 'Basic ' + btoa(c.key + ':' + c.secret);
+  var folder  = 'kpw-clients/' + slug;
+
+  try {
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/resources/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': auth,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify({
+        expression: 'folder="' + folder + '"',
+        max_results: 100,
+        sort_by: [{ created_at: 'desc' }]
+      })
+    });
+
+    if (res.status === 401) {
+      sessionStorage.removeItem('cld_key');
+      sessionStorage.removeItem('cld_secret');
+      stateEl.className = 'visible error';
+      stateEl.textContent = 'Invalid API credentials. Click Load Photos to try again.';
+      document.getElementById('btnLoad').disabled = false;
+      return;
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    var data = await res.json();
+    var resources = data.resources || [];
+
+    if (!resources.length) {
+      stateEl.className = 'visible';
+      stateEl.textContent = 'No photos found in folder: ' + folder;
+      document.getElementById('btnLoad').disabled = false;
+      return;
+    }
+
+    stateEl.classList.remove('visible');
+    stateEl.textContent = '';
+    photos = resources.map(function(r) {
+      return {
+        url:      r.secure_url,
+        filename: (r.public_id || '').split('/').pop(),
+        status:   'unreviewed'
+      };
+    });
+
+    renderGrid();
+    document.getElementById('btnLoad').disabled = false;
+    document.getElementById('action-bar').classList.add('visible');
+    updateCounts();
+
+  } catch (err) {
+    stateEl.className = 'visible error';
+    stateEl.textContent = 'Failed to load photos: ' + err.message +
+      '. Check your API credentials and try again.';
+    document.getElementById('btnLoad').disabled = false;
+  }
+}
+
+/* ─── Render grid ─────────────────────────────────────────────── */
+function renderGrid() {
+  var grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+  photos.forEach(function(photo, idx) {
+    var card = document.createElement('div');
+    card.className = 'photo-card';
+    card.dataset.idx    = idx;
+    card.dataset.status = photo.status;
+
+    var badge = document.createElement('div');
+    badge.className = 'status-badge';
+    badge.id = 'badge-' + idx;
+
+    var star = document.createElement('div');
+    star.className = 'story-star';
+    star.textContent = '⭐';
+
+    var img = document.createElement('img');
+    img.src     = photo.url;
+    img.alt     = photo.filename;
+    img.loading = 'lazy';
+
+    var fname = document.createElement('div');
+    fname.className   = 'photo-filename';
+    fname.textContent = photo.filename;
+
+    card.appendChild(badge);
+    card.appendChild(star);
+    card.appendChild(img);
+    card.appendChild(fname);
+
+    /* Single click → cycle; double-click → story set */
+    var lastClick = 0;
+    card.addEventListener('click', function(e) {
+      var now = Date.now();
+      if (now - lastClick < 280) {
+        /* double-click */
+        toggleStory(idx, card);
+        lastClick = 0;
+      } else {
+        lastClick = now;
+        setTimeout(function() {
+          if (Date.now() - lastClick >= 260) cycleStatus(idx, card);
+        }, 280);
+      }
+    });
+
+    setBadge(badge, photo.status);
+    grid.appendChild(card);
+  });
+}
+
+var STATUS_CYCLE  = ['unreviewed', 'approved', 'skip'];
+var STATUS_LABELS = {
+  unreviewed: '⬜',
+  approved:   '✅',
+  skip:       '⏭',
+  story:      '⭐'
+};
+
+function cycleStatus(idx, card) {
+  var cur  = photos[idx].status;
+  if (cur === 'story') { photos[idx].status = 'approved'; }
+  else {
+    var i = STATUS_CYCLE.indexOf(cur);
+    photos[idx].status = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
+  }
+  applyStatus(idx, card);
+}
+
+function toggleStory(idx, card) {
+  photos[idx].status = photos[idx].status === 'story' ? 'approved' : 'story';
+  applyStatus(idx, card);
+}
+
+function applyStatus(idx, card) {
+  card.dataset.status = photos[idx].status;
+  setBadge(document.getElementById('badge-' + idx), photos[idx].status);
+  updateCounts();
+}
+
+function setBadge(el, status) {
+  el.textContent = STATUS_LABELS[status] || '⬜';
+}
+
+/* ─── Counts ─────────────────────────────────────────────────── */
+function updateCounts() {
+  var approved = photos.filter(function(p) { return p.status === 'approved'; }).length;
+  var story    = photos.filter(function(p) { return p.status === 'story';    }).length;
+  var skipped  = photos.filter(function(p) { return p.status === 'skip';     }).length;
+  document.getElementById('counts').innerHTML =
+    '<span class="cnt-green">' + approved + ' approved</span> · ' +
+    '<span class="cnt-gold">'  + story    + ' story set</span> · ' +
+    '<span class="cnt-red">'   + skipped  + ' skipped</span>';
+}
+
+/* ─── Clear ──────────────────────────────────────────────────── */
+function clearAll() {
+  photos.forEach(function(p) { p.status = 'unreviewed'; });
+  renderGrid();
+  updateCounts();
+  var res = document.getElementById('save-result');
+  res.className = '';
+}
+
+/* ─── Save to Agency Brain ────────────────────────────────────── */
+function saveToAgencyBrain() {
+  var slug     = pendingSlug || document.getElementById('clientSlug').value.trim();
+  var approved = photos.filter(function(p) { return p.status === 'approved'; }).map(function(p) { return p.url; });
+  var storyArr = photos.filter(function(p) { return p.status === 'story';    }).map(function(p) { return p.url; });
+
+  /* Include story set URLs in approvedUrls too — they're also good photos */
+  var allApproved = approved.concat(storyArr);
+  var storySets   = storyArr.length ? [storyArr] : [];
+
+  if (!allApproved.length) {
+    var res = document.getElementById('save-result');
+    res.textContent = 'Approve at least one photo first.';
+    res.className   = 'error';
+    return;
+  }
+
+  var btn = document.getElementById('btnSave');
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+
+  var payload = {
+    action:       'updateImageLibrary',
+    clientSlug:   slug,
+    approvedUrls: allApproved,
+    storySets:    storySets
+  };
+
+  fetch(APPS_SCRIPT, {
+    method:  'POST',
+    mode:    'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload)
+  })
+  .then(function() {
+    var res = document.getElementById('save-result');
+    res.textContent = allApproved.length + ' photos approved for ' + slug +
+      '. Saved to Agency Brain — next content generation will use these photos first.';
+    res.className = 'success';
+  })
+  .catch(function(err) {
+    var res = document.getElementById('save-result');
+    res.textContent = 'Save failed: ' + err.message;
+    res.className = 'error';
+  })
+  .finally(function() {
+    btn.disabled    = false;
+    btn.textContent = 'Save to Agency Brain';
+  });
+}
+</script>
+</body>
+</html>
