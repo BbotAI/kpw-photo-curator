@@ -423,10 +423,7 @@
 
 <script>
 /* ─── Config ─────────────────────────────────────────────────── */
-var CLOUD_NAME  = 'dxqhuoxzn';
-var API_KEY     = '184433795241494';
-var API_SECRET  = '51FCyKUUep2DGxvKcFrK6kumOtE';
-var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbyu3_9kOTfsCldjees8Wqk_6DkB7noRz1RW4ZazxX04C6ag0TqqlrBPGHEXnyg49v_V/exec';
+var APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbzFZYOUUfdGgWp1-KqQ_fM2uFNQaT5ADZv2adT_tfLTQuWXlL4YY0ie8n0H_q_H2xcB/exec';
 
 /* ─── State ──────────────────────────────────────────────────── */
 var photos      = [];
@@ -505,23 +502,8 @@ async function fetchPhotos(slug) {
   stateEl.innerHTML = '<div class="spinner"></div>Loading photos for <strong>' + slug + '</strong>…';
   document.getElementById('btnLoad').disabled = true;
 
-  var auth   = 'Basic ' + btoa(API_KEY + ':' + API_SECRET);
-  var folder = 'kpw-clients/' + slug;
-
   try {
-    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/resources/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': auth,
-        'Content-Type':  'application/json'
-      },
-      body: JSON.stringify({
-        expression:  'folder="' + folder + '"',
-        max_results: 100,
-        sort_by:     [{ created_at: 'desc' }]
-      })
-    });
-
+    var res = await fetch(APPS_SCRIPT + '?action=getClientImages&clientSlug=' + encodeURIComponent(slug));
     if (!res.ok) throw new Error('HTTP ' + res.status);
 
     var data      = await res.json();
@@ -529,7 +511,7 @@ async function fetchPhotos(slug) {
 
     if (!resources.length) {
       stateEl.className = 'visible';
-      stateEl.textContent = 'No photos found in folder: ' + folder;
+      stateEl.textContent = 'No photos found for client: ' + slug;
       document.getElementById('btnLoad').disabled = false;
       return;
     }
